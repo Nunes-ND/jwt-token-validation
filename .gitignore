@@ -20,3 +20,7 @@ Thumbs.db
 
 # Database
 db.sqlite
+
+# SQLite database files
+*.sqlite-wal
+*.sqlite-shm
