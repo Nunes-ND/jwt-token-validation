@@ -5,22 +5,41 @@ import {
 } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 
-const dbFile = String(process.env.DB_FILE_NAME);
+type DbConnections = {
+	sqlite: Database.Database;
+	client: BetterSQLite3Database<typeof schema>;
+};
 
-let sqlite: Database.Database | undefined;
-export let drizzleClient: BetterSQLite3Database<typeof schema>;
+let connections: DbConnections | undefined;
 
 export function initializeDatabase() {
-	try {
-		if (!sqlite) {
-			sqlite = new Database(dbFile, { fileMustExist: true });
-			sqlite.pragma('journal_mode = WAL');
-			drizzleClient = drizzle(sqlite, { schema });
-		}
-		return sqlite;
-	} catch (_error) {
+	if (connections) {
+		return connections;
+	}
+
+	const dbFile = process.env.DB_FILE_NAME;
+	if (!dbFile) {
 		throw new Error(
-			`Failed to connect to database at ${dbFile}. Please ensure the file exists and has correct permissions.`,
+			'Database file path is not configured. Check DB_FILE_NAME environment variable.',
 		);
 	}
+
+	try {
+		const sqlite = new Database(dbFile, { fileMustExist: true });
+		sqlite.pragma('journal_mode = WAL');
+		const client = drizzle(sqlite, { schema });
+		connections = { sqlite, client };
+		return connections;
+	} catch (_error) {
+		throw new Error(`Failed to connect to database at "${dbFile}".`);
+	}
+}
+
+export function getDrizzleClient(): BetterSQLite3Database<typeof schema> {
+	if (!connections) {
+		throw new Error(
+			'Database has not been initialized. Call initializeDatabase() first.',
+		);
+	}
+	return connections.client;
 }
